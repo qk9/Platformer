@@ -45,6 +45,7 @@ class Platformer extends Phaser.Scene {
         this.controls.left = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
         this.controls.right = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
         this.controls.jump = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.controls.dash = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
 
         this.player = new Player(this, 250, game.config.height - 200, this.controls, 3, "playerTexture", null);
 
