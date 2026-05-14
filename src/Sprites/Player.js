@@ -6,8 +6,8 @@ class Player extends Phaser.GameObjects.Sprite {
 
         // initialize physics body
         this.body = new Phaser.Physics.Arcade.Body(scene.physics.world, this);
-        let collisionRadius = 25;
-        this.body.setSize(collisionRadius * 2, collisionRadius * 2, this.displayWidth / 2 - collisionRadius, this.displayHeight / 2 - collisionRadius);
+        this.bodySize = 50;
+        this.body.setSize(this.bodySize, this.bodySize, this.displayWidth / 2 - this.bodySize / 2, this.displayHeight / 2 - this.bodySize / 2);
         this.body.setBoundsRectangle(new Phaser.Geom.Rectangle(0, 0, scene.map.widthInPixels, scene.map.heightInPixels));
 
         // create rotating triangles
@@ -30,6 +30,7 @@ class Player extends Phaser.GameObjects.Sprite {
         // player movement constants
         this.maxFallVelo = 900; // prevent player from glitching through walls (thanks phaser)
         this.dragMultiplier = 1;
+        this.shortWallHitMultiplier = 2 / 3;
 
         // momentum storage variables
         this.storedVelo = 0;
@@ -41,8 +42,13 @@ class Player extends Phaser.GameObjects.Sprite {
         this.minJumpVelo = -460;
         this.controls.jump.on("up", () => {
             if (this.body.onFloor() && this.canStoreVelo) {
-                console.log("jump at velo", this.storedVelo);
                 this.body.setVelocityY((this.storedVelo * -1) + this.minJumpVelo);
+                this.body.setDragX(0);
+                this.dashVelo = this.storedVelo;
+                if (this.dashVelo == 0) {
+                    this.dashVelo -= this.minJumpVelo;
+                }
+                console.log(this.dashVelo);
             }
             this.storedVelo = 0;
             this.canStoreVelo = true;
@@ -55,13 +61,13 @@ class Player extends Phaser.GameObjects.Sprite {
         this.dashVelo = 0;
         this.moveDirection = 0; // -1 = left, 0 = neutral, 1 = right
         this.controls.dash.on("down", () => {
-            this.body.setVelocityX(this.body.velocity.x + this.storedVelo * this.moveDirection);
-
+            this.body.setVelocityX(this.body.velocity.x + Math.max(this.storedVelo, this.dashVelo) * this.moveDirection);
             if (this.storedVelo > 0) {
                 this.canStoreVelo = false;
             }
-            // remove spent dashVelo from storedVelo; use += because storedVelo is negative
+            this.body.setDragX(0);
             this.storedVelo = 0;
+            this.dashVelo = 0;
         })
 
         this.acceleration = 500;
@@ -89,57 +95,56 @@ class Player extends Phaser.GameObjects.Sprite {
             this.triangleGraphics.strokeTriangleShape(this.triangles[i]);
         }
 
-        /*// left/right movement
-        if (this.body.onFloor()) {
-            if (this.controls.left.isDown && !this.controls.right.isDown) {
-                this.body.setAccelerationX(this.acceleration * -1);
-                this.body.setDragX(0);
-                this.rotation += (Math.PI / -6 - this.rotation) * 0.01;
-            }
-            else if (this.controls.right.isDown && !this.controls.left.isDown) {
-                this.body.setAccelerationX(this.acceleration);
-                this.body.setDragX(0);
-                this.rotation += (Math.PI / 6 - this.rotation) * 0.01;
-            }
-            else if (this.controls.left.isDown && this.controls.right.isDown) {
-                this.body.setAccelerationX(0);
-                this.body.setDragX(this.drag);
-                this.rotation -= this.rotation * 0.03;
-            }
-            else {
-                this.body.setAccelerationX(0);
-                this.body.setDragX(this.drag * 3);
-                this.rotation -= this.rotation * 0.01;
-            }
-        }
-
-        if (this.controls.jump.isDown && this.body.onFloor()) {
-            // reset dash velo
-            this.dashVelo = 0;
-
-            // kill acceleration and update drag if needed
-            this.body.setAccelerationX(0);
-            if (this.body.drag.x < this.drag) {
-                this.body.setDragX(this.drag);
-            }
-
-            // add siphoned xVelo to jump height
-            if (Math.abs(this.lastXVelo) < this.body.maxVelocity.x && Math.abs(this.storedVelo) < this.maxStoredVelo) {
-                console.log(Math.abs(this.lastXVelo - this.body.velocity.x) * -1);
-                this.storedVelo += Math.max(Math.abs(this.lastXVelo - this.body.velocity.x) * -1, -87.5);
-            }
-            this.lastXVelo = this.body.velocity.x;
-
-            // cap jump velo
-            if (Math.abs(this.storedVelo) > this.maxStoredVelo) {
-                this.storedVelo = this.maxStoredVelo * -1;
-            }
-        }*/
         this.handleControlInputs();
+
+        this.handleShortWallCollisions();
 
         // cap downwards velo so you don't fall through the floor (thanks phaser)
         this.body.velocity.y = Math.min(this.body.velocity.y, this.maxFallVelo);
-        console.log(this.storedVelo);
+    }
+
+    handleShortWallCollisions() {
+        if (this.body.blocked.left && this.body.position.x > 0) {
+            // step upwards if top of wall is <= 1 tile away
+            if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) - 1, Math.floor(this.y / this.scene.map.tileWidth) - 1, true, "physical").index == -1) {
+                this.body.setDirectControl();
+                this.body.position.y = Math.floor((this.body.position.y + this.bodySize - 1) / this.scene.map.tileHeight) * this.scene.map.tileHeight - this.bodySize;
+                if(this.oldXVelo < 50) {
+                    this.body.position.x -= 2;
+                }
+                this.body.setVelocityX(this.toXVelo);
+                this.body.setDirectControl(false);
+            }
+            // step downwards if bottom of wall is <= 1 tile away
+            if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) - 1, Math.floor(this.y / this.scene.map.tileWidth) + 1, true, "physical").index == -1) {
+                console.log("move down");
+                this.body.setDirectControl();
+                this.body.position.y = Math.ceil((this.body.position.y + 1) / this.scene.map.tileHeight) * (this.scene.map.tileHeight + 1);
+                this.body.setVelocityX(this.toXVelo);
+                this.body.setDirectControl(false);
+            }
+        }
+        if (this.body.blocked.right && this.body.position.x + this.bodySize < this.scene.map.widthInPixels) {
+            // step upwards if top of wall is <= 1 tile away
+            if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) + 1, Math.floor(this.y / this.scene.map.tileWidth) - 1, true, "physical").index == -1) {
+                this.body.setDirectControl();
+                this.body.position.y = Math.floor((this.body.position.y + this.bodySize - 1) / this.scene.map.tileHeight) * this.scene.map.tileHeight - this.bodySize;
+                if(this.oldXVelo < 50) {
+                    this.body.position.x += 2;
+                }
+                this.body.setVelocityX(this.toXVelo);
+                this.body.setDirectControl(false);
+            }
+            // step downwards if top f wall is <= 1 tile away
+            if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) + 1, Math.floor(this.y / this.scene.map.tileWidth) + 1, true, "physical").index == -1) {
+                console.log("move down");
+                this.body.setDirectControl();
+                this.body.position.y = Math.ceil((this.body.position.y + 1) / this.scene.map.tileHeight) * (this.scene.map.tileHeight + 1);
+                this.body.setVelocityX(this.toXVelo);
+                this.body.setDirectControl(false);
+            }
+        }
+        this.toXVelo = this.body.velocity.x * this.shortWallHitMultiplier;
     }
 
     handleControlInputs() {
@@ -188,6 +193,20 @@ class Player extends Phaser.GameObjects.Sprite {
 
                 // cap stored velo
                 this.storedVelo = Math.min(this.storedVelo, this.maxStoredVelo);
+            }
+        }
+        else {
+            if (this.controls.left.isDown && !this.controls.right.isDown) {
+                this.moveDirection = -1;
+                this.rotation += (Math.PI / -6 - this.rotation) * 0.01;
+            }
+            else if (this.controls.right.isDown && !this.controls.left.isDown) {
+                this.moveDirection = 1;
+                this.rotation += (Math.PI / 6 - this.rotation) * 0.01;
+            }
+            else {
+                this.moveDirection = 0;
+                this.rotation -= this.rotation * 0.01;
             }
         }
     }
