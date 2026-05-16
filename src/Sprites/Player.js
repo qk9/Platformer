@@ -13,7 +13,7 @@ class Player extends Phaser.GameObjects.Sprite {
         // create rotating triangles
         this.numTriangles = numTriangles;
         this.triangleScale = 200;
-        this.triangleGraphics = this.scene.add.graphics();
+        this.triangleGraphics = scene.add.graphics();
         this.scene.children.sendToBack(this.triangleGraphics);
         this.triangleGraphics.lineStyle(10, 0xffffff, 1);
         this.triangles = {};
@@ -28,52 +28,34 @@ class Player extends Phaser.GameObjects.Sprite {
         this.controls = controls;
 
         // player movement constants
+        this.body.setMaxVelocityX(1500);
+        this.body.setMaxVelocityY(1425);
         this.maxFallVelo = 900; // prevent player from glitching through walls (thanks phaser)
-        this.dragMultiplier = 1;
         this.shortWallHitMultiplier = 2 / 3;
+        this.lowSpeedAccel = this.body.maxVelocity.x * 0.8;
+        this.lowAccelCutoff = 0.6;
+        this.highSpeedAccel = this.body.maxVelocity.x * 0.15;
+        this.drag = 700;
+        this.dragMultiplier = 1;
 
         // momentum storage variables
         this.storedVelo = 0;
+        this.storedVeloBleed = 500;
         this.maxStoredVelo = 1500;
         this.lastXVelo = this.body.maxVelocity.x + 1;
         this.canStoreVelo = true;
 
         // jump callback & variables
-        this.minJumpVelo = -460;
-        this.controls.jump.on("up", () => {
-            if (this.body.onFloor() && this.canStoreVelo) {
-                this.body.setVelocityY((this.storedVelo * -1) + this.minJumpVelo);
-                this.body.setDragX(0);
-                this.dashVelo = this.storedVelo;
-                if (this.dashVelo == 0) {
-                    this.dashVelo -= this.minJumpVelo;
-                }
-                console.log(this.dashVelo);
-            }
-            this.storedVelo = 0;
-            this.canStoreVelo = true;
-
-            // flag lastXVelo as invalid by making it > player's max speed
-            this.lastXVelo = this.body.maxVelocity.x + 1;
-        });
+        this.minJumpVelo = -300;
+        this.controls.jump.on("down", this.jump, this);
 
         // dash callback & variables
         this.dashVelo = 0;
         this.moveDirection = 0; // -1 = left, 0 = neutral, 1 = right
-        this.controls.dash.on("down", () => {
-            this.body.setVelocityX(this.body.velocity.x + Math.max(this.storedVelo, this.dashVelo) * this.moveDirection);
-            if (this.storedVelo > 0) {
-                this.canStoreVelo = false;
-            }
-            this.body.setDragX(0);
-            this.storedVelo = 0;
-            this.dashVelo = 0;
-        })
+        this.controls.dash.on("down", this.dash, this)
 
-        this.acceleration = 500;
-        this.body.setMaxVelocityX(1000);
-        this.body.setMaxVelocityY(1425);
-        this.drag = 700;
+        this.scene.input.on("pointerup", () => {this.canStoreVelo = true;});
+
         this.scene.children.bringToTop(this);
 
         scene.physics.add.existing(this);
@@ -95,119 +77,185 @@ class Player extends Phaser.GameObjects.Sprite {
             this.triangleGraphics.strokeTriangleShape(this.triangles[i]);
         }
 
-        this.handleControlInputs();
+        this.handleControlInputs(delta);
 
         this.handleShortWallCollisions();
 
+        //console.log(this.storedVelo);
+
         // cap downwards velo so you don't fall through the floor (thanks phaser)
         this.body.velocity.y = Math.min(this.body.velocity.y, this.maxFallVelo);
+
+        this.lastXVelo = this.body.velocity.x;
     }
 
     handleShortWallCollisions() {
         if (this.body.blocked.left && this.body.position.x > 0) {
+            //console.log("old y:" + this.body.position.y);
             // step upwards if top of wall is <= 1 tile away
             if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) - 1, Math.floor(this.y / this.scene.map.tileWidth) - 1, true, "physical").index == -1) {
+                //console.log("step up-left");
+
+                // update x velocity
+                let veloMultiplier = 1 - ((1 - this.shortWallHitMultiplier) * Math.abs(this.body.position.y - (Math.floor((this.body.position.y + this.bodySize - 1) / this.scene.map.tileHeight) * this.scene.map.tileHeight - this.bodySize)) / this.scene.map.tileHeight);
+                this.body.setVelocityX(this.lastXVelo * veloMultiplier);
+
+                // update y position
                 this.body.setDirectControl();
                 this.body.position.y = Math.floor((this.body.position.y + this.bodySize - 1) / this.scene.map.tileHeight) * this.scene.map.tileHeight - this.bodySize;
-                if(this.oldXVelo < 50) {
+                //console.log(this.body.position.y);
+                if(this.lastXVelo < 50) {
                     this.body.position.x -= 2;
                 }
-                this.body.setVelocityX(this.toXVelo);
+                if (this.body.velocity.y > 0) {
+                    this.body.velocity.y = 0;
+                }
                 this.body.setDirectControl(false);
+
+                // update physics value due to fixed physics timestep issues
+                this.body.blocked.left = false;
             }
+
             // step downwards if bottom of wall is <= 1 tile away
-            if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) - 1, Math.floor(this.y / this.scene.map.tileWidth) + 1, true, "physical").index == -1) {
-                console.log("move down");
+            else if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) - 1, Math.floor(this.y / this.scene.map.tileWidth) + 1, true, "physical").index == -1) {
+                //console.log("step down-left");
+
+                // update x velocity
+                let veloMultiplier = 1 - ((1 - this.shortWallHitMultiplier) * Math.abs(this.body.position.y - (Math.ceil((this.body.position.y + 1) / this.scene.map.tileHeight) * (this.scene.map.tileHeight + 1))) / this.scene.map.tileHeight);
+                this.body.setVelocityX(this.lastXVelo * veloMultiplier);
+
+                // update y position
                 this.body.setDirectControl();
                 this.body.position.y = Math.ceil((this.body.position.y + 1) / this.scene.map.tileHeight) * (this.scene.map.tileHeight + 1);
-                this.body.setVelocityX(this.toXVelo);
+                //console.log(this.body.position.y);
+                if (this.body.velocity.y < 0) {
+                    this.body.velocity.y = 0;
+                }
                 this.body.setDirectControl(false);
+
+                // update physics value due to fixed physics timestep issues
+                this.body.blocked.left = false;
             }
         }
+
         if (this.body.blocked.right && this.body.position.x + this.bodySize < this.scene.map.widthInPixels) {
+            //console.log("old y:" + this.body.position.y);
             // step upwards if top of wall is <= 1 tile away
             if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) + 1, Math.floor(this.y / this.scene.map.tileWidth) - 1, true, "physical").index == -1) {
+                //console.log("step up-right");
+
+                // update x velocity
+                let veloMultiplier = 1 - ((1 - this.shortWallHitMultiplier) * Math.abs(this.body.position.y - (Math.floor((this.body.position.y + this.bodySize - 1) / this.scene.map.tileHeight) * this.scene.map.tileHeight - this.bodySize)) / this.scene.map.tileHeight);
+                this.body.setVelocityX(this.lastXVelo * veloMultiplier);
+
+                // update y position
                 this.body.setDirectControl();
                 this.body.position.y = Math.floor((this.body.position.y + this.bodySize - 1) / this.scene.map.tileHeight) * this.scene.map.tileHeight - this.bodySize;
-                if(this.oldXVelo < 50) {
+                //console.log(this.body.position.y);
+                if(this.lastXVelo < 50) {
                     this.body.position.x += 2;
                 }
-                this.body.setVelocityX(this.toXVelo);
+                if (this.body.velocity.y > 0) {
+                    this.body.velocity.y = 0;
+                }
                 this.body.setDirectControl(false);
+
+                // update physics value due to fixed physics timestep issues
+                this.body.blocked.right = false;
             }
-            // step downwards if top f wall is <= 1 tile away
-            if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) + 1, Math.floor(this.y / this.scene.map.tileWidth) + 1, true, "physical").index == -1) {
-                console.log("move down");
+            // step downwards if top of wall is <= 1 tile away
+            else if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) + 1, Math.floor(this.y / this.scene.map.tileWidth) + 1, true, "physical").index == -1) {
+                //console.log("step down-right");
+
+                // update x velocity
+                let veloMultiplier = 1 - ((1 - this.shortWallHitMultiplier) * Math.abs(this.body.position.y - (Math.ceil((this.body.position.y + 1) / this.scene.map.tileHeight) * (this.scene.map.tileHeight + 1))) / this.scene.map.tileHeight);
+                this.body.setVelocityX(this.lastXVelo * veloMultiplier);
+
+                // update y position
                 this.body.setDirectControl();
                 this.body.position.y = Math.ceil((this.body.position.y + 1) / this.scene.map.tileHeight) * (this.scene.map.tileHeight + 1);
-                this.body.setVelocityX(this.toXVelo);
+                //console.log(this.body.position.y);
+                if (this.body.velocity.y < 0) {
+                    this.body.velocity.y = 0;
+                }
                 this.body.setDirectControl(false);
+
+                // update physics value due to fixed physics timestep issues
+                this.body.blocked.right = false;
             }
         }
-        this.toXVelo = this.body.velocity.x * this.shortWallHitMultiplier;
     }
 
-    handleControlInputs() {
-        // left/right movement
-        if (this.body.onFloor()) {
-            // determine movement direction, set drag, and animate player model
-            if (this.controls.left.isDown && !this.controls.right.isDown) {
-                this.moveDirection = -1;
-                this.body.setDragX(0);
-                this.rotation += (Math.PI / -6 - this.rotation) * 0.01;
-            }
-            else if (this.controls.right.isDown && !this.controls.left.isDown) {
-                this.moveDirection = 1;
-                this.body.setDragX(0);
-                this.rotation += (Math.PI / 6 - this.rotation) * 0.01;
+    handleControlInputs(delta) {
+        // determine movement direction, set drag, and animate player model
+        if (this.controls.left.isDown && !this.controls.right.isDown) {
+            this.inDirection = -1;
+            this.body.setDragX(0);
+            this.rotation += (Math.PI / -6 - this.rotation) * 0.01;
+        }
+        else if (this.controls.right.isDown && !this.controls.left.isDown) {
+            this.inDirection = 1;
+            this.body.setDragX(0);
+            this.rotation += (Math.PI / 6 - this.rotation) * 0.01;
+        }
+        else {
+            if (this.controls.left.isDown) {
+                this.body.setDragX(this.drag);
+                this.rotation -= this.rotation * 0.01;
             }
             else {
-                if (this.controls.left.isDown) {
-                    this.body.setDragX(this.drag);
-                    this.rotation -= this.rotation * 0.01;
-                }
-                else {
-                    this.body.setDragX(this.drag * 3);
-                    this.rotation -= this.rotation * 0.03;
-                }
-                this.moveDirection = 0;
+                this.body.setDragX(this.drag * 3);
+                this.rotation -= this.rotation * 0.03;
             }
+            this.inDirection = 0;
+        }
 
-            // update player physics values
-            this.body.setAccelerationX(this.acceleration * this.moveDirection);
-
+        if (this.body.onFloor()) {
+            this.moveDirection = this.inDirection;
             // handle velocity storage
-            if (this.canStoreVelo && this.controls.jump.isDown) {
-                // kill acceleration and update drag if needed
-                this.body.setAccelerationX(0);
-                if (this.body.drag.x < this.drag) {
-                    this.body.setDragX(this.drag);
-                }
+            if (this.canStoreVelo && this.controls.storeVelo.isDown) {
+                // start siphoning xVelo
+                this.moveDirection = 0;
+                this.body.setDragX(Math.max(this.body.drag.x, this.drag));
 
                 // add siphoned xVelo to storage
-                if (Math.abs(this.lastXVelo) < this.body.maxVelocity.x && Math.abs(this.storedVelo) < this.maxStoredVelo) {
+                if (Math.abs(this.storedVelo) < this.maxStoredVelo) {
                     // if you hit a wall, you don't get to keep the velo from that
                     this.storedVelo += Math.min(Math.abs(this.lastXVelo - this.body.velocity.x), 87.5);
                 }
-                this.lastXVelo = this.body.velocity.x;
 
                 // cap stored velo
                 this.storedVelo = Math.min(this.storedVelo, this.maxStoredVelo);
             }
-        }
-        else {
-            if (this.controls.left.isDown && !this.controls.right.isDown) {
-                this.moveDirection = -1;
-                this.rotation += (Math.PI / -6 - this.rotation) * 0.01;
-            }
-            else if (this.controls.right.isDown && !this.controls.left.isDown) {
-                this.moveDirection = 1;
-                this.rotation += (Math.PI / 6 - this.rotation) * 0.01;
-            }
             else {
-                this.moveDirection = 0;
-                this.rotation -= this.rotation * 0.01;
+                this.storedVelo = Math.max(this.storedVelo - (this.storedVeloBleed * (delta / 1000)), 0);
             }
         }
+        
+        // update player physics values
+        let highAccelProportion = Math.min(Math.abs(this.body.velocity.x / this.body.maxVelocity.x), this.lowAccelCutoff) / this.lowAccelCutoff;
+        this.body.setAccelerationX((highAccelProportion * this.highSpeedAccel + (1 - highAccelProportion) * this.lowSpeedAccel) * this.moveDirection)
+    }
+
+    jump() {
+        if (this.body.onFloor() && this.canStoreVelo) {
+            this.body.setVelocityY((this.storedVelo * -1) + this.minJumpVelo);
+            this.body.setDragX(0);
+            this.dashVelo = this.storedVelo;
+        }
+        this.storedVelo = 0;
+        this.canStoreVelo = true;
+    }
+
+    dash() {
+        console.log("inDirection:" + this.inDirection);
+        this.body.setVelocityX(this.body.velocity.x + Math.max(this.storedVelo, this.dashVelo) * this.inDirection);
+        console.log(this.body.velocity.x);
+        if (this.storedVelo > 0) {
+            this.canStoreVelo = false;
+        }
+        this.body.setDragX(0);
+        this.storedVelo = 0;
+        this.dashVelo = 0;
     }
 }

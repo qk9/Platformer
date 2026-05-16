@@ -36,44 +36,87 @@ class Platformer extends Phaser.Scene {
             collides: true
         });
 
-        /*this.leftKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
-        this.rightKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-
-        this.speed = 200;*/
-
         this.controls = {};
         this.controls.left = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
         this.controls.right = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
         this.controls.jump = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
         this.controls.dash = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+        this.controls.storeVelo = this.input.activePointer;
 
         this.player = new Player(this, 250, game.config.height - 200, this.controls, 3, "playerTexture", null);
 
         this.cameras.main.startFollow(this.player);
         this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
-        console.log("player initialized");
+        this.init_BackgroundCircle();
     }
 
     update(time, delta) {
-        let camera = this.cameras.main;
+        this.doBackgroundCircle();
+        this.player.update(time, delta);
+
+        // debug: log FPS
+        //console.log(Math.floor(1000 / delta));
+    }
+
+    init_BackgroundColor() {
+        this.oldColorSegment1 = 0x00;
+        this.oldColorSegment2 = 0x00;
+    }
+
+    doBackgroundColor() {
         let color = 0x000000;
-        let colorSegment = Math.floor(0xff * ((Math.cos(this.player.body.velocity.x / this.player.body.maxVelocity.x * Math.PI) / 2) + 0.5));
-        let colorSegment2 = Math.floor(0xff * ((Math.cos(this.player.body.velocity.x / this.player.body.maxVelocity.x * Math.PI) / -2) + 0.5));
-        color += colorSegment << 8;
+        let colorSegment1 = Math.min((this.oldColorSegment1 * 0.9) + 0.1 * Math.floor(0xff * ((Math.cos(this.player.body.velocity.x / this.player.body.maxVelocity.x * Math.PI) / 2) + 0.5)));
+        let colorSegment2 = Math.min((this.oldColorSegment2 * 0.9) + 0.1 * Math.floor(0xff * ((Math.cos(this.player.body.velocity.x / this.player.body.maxVelocity.x * Math.PI) / -2) + 0.5)));
+        color += colorSegment1 << 8;
         color += colorSegment2 << 16;
         this.cameras.main.setBackgroundColor(color);
 
+        this.oldColorSegment1 = colorSegment1;
+        this.oldColorSegment2 = colorSegment2;
 
-        
+    }
 
+    init_BackgroundRect() {
+        this.backgroundRect = new Phaser.Geom.Rectangle(0, game.config.height - 10, game.config.width, 10)
+        this.backgroundGraphics = this.add.graphics();
+        this.children.sendToBack(this.backgroundGraphics);
+        this.backgroundGraphics.fillStyle(0xff0000, 1);
+        this.backgroundGraphics.fillRectShape(this.backgroundRect);
+        this.cameras.main.setBackgroundColor(0x00ff00);
+        this.oldRectHeight = 10;
+    }
 
-        /*if (camera.scrollX > this.map.widthInPixels - (camera.worldView.width)) {
-            camera.scrollX = this.map.widthInPixels - (camera.worldView.width);
-        }
-        if (camera.scrollX < 0) {
-            camera.scrollX = 0;
-        }*/
+    doBackgroundRect() {
+        let camera = this.cameras.main;
+        let newRectHeight = (0.9 * this.oldRectHeight) + (0.1 * ((game.config.height) * Math.abs(this.player.body.velocity.x / this.player.body.maxVelocity.x) + 10));
+        this.backgroundRect.setPosition(camera.worldView.x, game.config.height - newRectHeight);
+        this.backgroundRect.height = newRectHeight;
+        this.backgroundGraphics.clear();
+        this.backgroundGraphics.fillStyle(0xff0000, 0.5 + (newRectHeight / game.config.height / 2));
+        this.backgroundGraphics.fillRectShape(this.backgroundRect);
+        this.oldRectHeight = newRectHeight;
+    }
 
-        this.player.update(time, delta);
+    // must init this.player first
+    init_BackgroundCircle() {
+        this.backgroundCircle = new Phaser.Geom.Circle(this.player.body.x, this.player.body.y, this.player.bodySize);
+        this.backgroundGraphics = this.add.graphics();
+        this.children.sendToBack(this.backgroundGraphics);
+        this.backgroundGraphics.fillStyle(0xff0000, 0.1);
+        this.backgroundGraphics.fillCircleShape(this.backgroundCircle);
+        this.cameras.main.setBackgroundColor(0x00ff00);
+        this.oldCircleRadius = this.player.bodySize;
+    }
+
+    doBackgroundCircle() {
+        let playerSpeedRatio = Math.abs(this.player.body.velocity.x / this.player.body.maxVelocity.x);
+        let newCircleRadius = (0.9 * this.oldCircleRadius) + (0.1 * (((250 * playerSpeedRatio) + this.player.bodySize) / 2));
+        this.backgroundCircle.setTo(this.player.body.position.x + this.player.bodySize / 2, this.player.body.position.y + this.player.bodySize / 2, newCircleRadius);
+        this.backgroundGraphics.clear();
+        this.backgroundGraphics.fillStyle(0xff0000, 0.1 + (0.9 * playerSpeedRatio));
+        this.backgroundGraphics.slice(this.backgroundCircle.x, this.backgroundCircle.y, this.backgroundCircle.radius, Math.PI / 2, Math.PI * 2 * playerSpeedRatio + (Math.PI / 2));
+        this.backgroundGraphics.fillPath();
+
+        this.oldCircleRadius = newCircleRadius;
     }
 }
