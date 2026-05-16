@@ -22,11 +22,12 @@ let config = {
     physics: {
         default: 'arcade',
         arcade: {
-            debug: true,
+            debug: false,
             gravity: {
                 x: 0,
                 y: 0
-            }
+            },
+            fps: 120
         }
     },
     width: 1600,
