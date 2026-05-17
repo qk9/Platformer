@@ -12,6 +12,8 @@ class Platformer extends Phaser.Scene {
 
         // player sprites
         this.load.image("playerTexture", "kenney_light-masks-1.0/Transparent/circle_c_streaks_resized.png");
+        this.load.image("playerTwirlSlow", "twirl_slow_resized.png");
+        this.load.image("playerTwirlFast", "twirl_fast_resized.png");
     }
 
     create() {
@@ -43,15 +45,15 @@ class Platformer extends Phaser.Scene {
         this.controls.dash = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
         this.controls.storeVelo = this.input.activePointer;
 
-        this.player = new Player(this, 250, game.config.height - 200, this.controls, 3, "playerTexture", null);
+        this.player = new Player(this, 250, game.config.height - 200, this.controls, "playerTwirlSlow", "playerTwirlFast", 3, null);
 
         this.cameras.main.startFollow(this.player);
         this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
-        this.init_BackgroundCircle();
+        this.init_BackgroundColor();
     }
 
     update(time, delta) {
-        this.doBackgroundCircle();
+        this.doBackgroundColor();
         this.player.update(time, delta);
 
         // debug: log FPS
@@ -59,20 +61,13 @@ class Platformer extends Phaser.Scene {
     }
 
     init_BackgroundColor() {
-        this.oldColorSegment1 = 0x00;
-        this.oldColorSegment2 = 0x00;
+        this.oldHue = 1 / 3;
     }
 
     doBackgroundColor() {
-        let color = 0x000000;
-        let colorSegment1 = Math.min((this.oldColorSegment1 * 0.9) + 0.1 * Math.floor(0xff * ((Math.cos(this.player.body.velocity.x / this.player.body.maxVelocity.x * Math.PI) / 2) + 0.5)));
-        let colorSegment2 = Math.min((this.oldColorSegment2 * 0.9) + 0.1 * Math.floor(0xff * ((Math.cos(this.player.body.velocity.x / this.player.body.maxVelocity.x * Math.PI) / -2) + 0.5)));
-        color += colorSegment1 << 8;
-        color += colorSegment2 << 16;
-        this.cameras.main.setBackgroundColor(color);
-
-        this.oldColorSegment1 = colorSegment1;
-        this.oldColorSegment2 = colorSegment2;
+        let hue = 0.9 * this.oldHue + 0.1 * (1 / 3 * (1 - Math.abs(this.player.body.velocity.x / this.player.body.maxVelocity.x)));
+        this.cameras.main.setBackgroundColor(Phaser.Display.Color.HSVToRGB(hue, 1, 1).color);
+        this.oldHue = hue;
 
     }
 
