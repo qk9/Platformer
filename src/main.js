@@ -30,7 +30,7 @@ let config = {
             fps: 120
         }
     },
-    width: 1600,
+    width: 2400,
     height: 960,
     scene: [Platformer] // TODO: add scenes
 }

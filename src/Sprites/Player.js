@@ -98,7 +98,7 @@ class Player extends Phaser.GameObjects.Sprite {
 
         this.handleShortWallCollisions();
 
-        this.updatePlayerVisuals(time, delta);
+        this.handleVisuals(time, delta);
 
         //console.log(this.storedVelo);
 
@@ -108,7 +108,7 @@ class Player extends Phaser.GameObjects.Sprite {
         this.lastXVelo = this.body.velocity.x;
     }
 
-    updatePlayerVisuals(time, delta) {
+    handleVisuals(time, delta) {
         if (Math.abs(this.body.velocity.x) > this.body.maxVelocity.x * 0.75 && this.texture.key != this.textureFast.key) {
             this.setTexture(this.textureFast);
         }
