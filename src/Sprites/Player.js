@@ -21,8 +21,8 @@ class Player extends Phaser.GameObjects.Sprite {
         this.rotorInner.setScale(0.4, 0.4);
 
         // create player color graphics
-        this.outerGraphics = this.scene.add.graphics();
-        this.innerGraphics = this.scene.add.graphics();
+        this.outerGraphics = scene.add.graphics();
+        this.innerGraphics = scene.add.graphics();
         this.outerColorGeom = new Phaser.Geom.Circle(this.x + this.displayWidth / 2, this.y + this.displayHeight / 2, this.displayWidth / 2 - 2);
         this.innerColorGeom = new Phaser.Geom.Circle(this.rotorInner.x + this.rotorInner.displayWidth / 2, this.rotorInner.y + this.rotorInner.displayHeight / 2, this.rotorInner.displayWidth / 2 - 2);
         this.outerGraphics.fillStyle(0xff0000, 1);
@@ -32,6 +32,41 @@ class Player extends Phaser.GameObjects.Sprite {
         scene.children.bringToTop(this);
         scene.children.bringToTop(this.innerGraphics);
         scene.children.bringToTop(this.rotorInner);
+
+        this.outerParticleGeom = new Phaser.Geom.Circle(0, 0, this.outerColorGeom.radius);
+
+        this.particleGraphics = scene.add.graphics();
+        this.particleGraphics.fillStyle(this.outerGraphics.fillStyle.color, 0.3);
+        this.particleGraphics.fillCircle(0, 0, 5);
+        this.particleGraphics.fillStyle(0xffffff, 0.7);
+        this.particleGraphics.fillCircle(0, 0, 3);
+        this.particleGraphics.fillStyle(0xffffff, 1);
+        this.particleGraphics.fillCircle(0, 0, 1);
+        this.particleGraphics.generateTexture('particle', 10, 10);
+        this.particleGraphics.destroy();
+
+        // create particle emitters
+        this.particleSpeed = 100;
+        this.suckEmitter = this.scene.add.particles(0, 0, 'particle',
+            {
+                gravityY: 100,
+                scale: 1,
+                alpha: {start: 1, end: 0},
+                lifespan: 1000,
+                frequency: 10,
+                quantity: 1,
+                blendMode: 'ADD',
+                emitCallback: (particle) => {
+                    let angle = Math.random() * Math.PI * 2;
+                    particle.x = this.outerColorGeom.x + (this.outerColorGeom.radius) * (Math.cos(angle));
+                    particle.y = this.outerColorGeom.y + (this.outerColorGeom.radius) * (Math.sin(angle));
+                    particle.velocityX = this.body.velocity.x + (this.particleSpeed * Math.cos(angle + Math.PI / 2 * Math.sign(this.flipX - 0.5) * -1));
+                    particle.velocityY = this.body.velocity.y + (this.particleSpeed * Math.sin(angle + Math.PI / 2 * Math.sign(this.flipX - 0.5) * -1));
+                }
+            }
+        );
+        this.suckEmitter.startFollow(this.body, this.outerParticleGeom.radius, this.outerParticleGeom.radius);
+        this.suckEmitter.start();
 
 
         // create rotating triangles
