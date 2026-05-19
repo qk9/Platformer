@@ -36,37 +36,50 @@ class Player extends Phaser.GameObjects.Sprite {
         this.outerParticleGeom = new Phaser.Geom.Circle(0, 0, this.outerColorGeom.radius);
 
         this.particleGraphics = scene.add.graphics();
-        this.particleGraphics.fillStyle(this.outerGraphics.fillStyle.color, 0.3);
-        this.particleGraphics.fillCircle(0, 0, 5);
-        this.particleGraphics.fillStyle(0xffffff, 0.7);
-        this.particleGraphics.fillCircle(0, 0, 3);
-        this.particleGraphics.fillStyle(0xffffff, 1);
-        this.particleGraphics.fillCircle(0, 0, 1);
-        this.particleGraphics.generateTexture('particle', 10, 10);
-        this.particleGraphics.destroy();
+        this.generateParticleSprite();
 
         // create particle emitters
         this.particleSpeed = 100;
-        this.suckEmitter = this.scene.add.particles(0, 0, 'particle',
+        this.suckEmitter = this.scene.add.particles(0, 0, null,
             {
-                gravityY: 100,
                 scale: 1,
-                alpha: {start: 1, end: 0},
-                lifespan: 1000,
-                frequency: 10,
-                quantity: 1,
+                alpha: 0.5,
+                frequency: 20,
+                quantity: 0,
+                texture: 'particle',
                 blendMode: 'ADD',
+                maxVelocityY: 150,
                 emitCallback: (particle) => {
                     let angle = Math.random() * Math.PI * 2;
-                    particle.x = this.outerColorGeom.x + (this.outerColorGeom.radius) * (Math.cos(angle));
-                    particle.y = this.outerColorGeom.y + (this.outerColorGeom.radius) * (Math.sin(angle));
-                    particle.velocityX = this.body.velocity.x + (this.particleSpeed * Math.cos(angle + Math.PI / 2 * Math.sign(this.flipX - 0.5) * -1));
-                    particle.velocityY = this.body.velocity.y + (this.particleSpeed * Math.sin(angle + Math.PI / 2 * Math.sign(this.flipX - 0.5) * -1));
+                    particle.x = this.outerColorGeom.x + (this.outerColorGeom.radius + 10) * (Math.cos(angle));
+                    particle.y = this.outerColorGeom.y + (this.outerColorGeom.radius + 10) * (Math.sin(angle));
+                    particle.velocityX = 0; //(this.particleSpeed * Math.cos(angle + Math.PI / 2 * Math.sign(this.flipX - 0.5) * -1));
+                    particle.velocityY = 0; //(this.particleSpeed * Math.sin(angle + Math.PI / 2 * Math.sign(this.flipX - 0.5) * -1));
+                    this.scene.children.bringToTop(particle);
+                },
+                deathZone: {
+                    type: 'onEnter',
+                    source: this.innerColorGeom
                 }
             }
         );
         this.suckEmitter.startFollow(this.body, this.outerParticleGeom.radius, this.outerParticleGeom.radius);
-        this.suckEmitter.start();
+        this.well = this.suckEmitter.createGravityWell({
+            x: this.x,
+            y: this.y,
+            power: 1,
+            epsilon: 1,
+            gravity: 80
+        });
+        this.well.active = true;
+        this.wellOuter = this.suckEmitter.createGravityWell({
+            x: this.x,
+            y: this.y,
+            power: 100,
+            epsilon: 800,
+            gravity: 80
+        });
+        this.wellOuter.active = true;
 
 
         // create rotating triangles
@@ -128,6 +141,7 @@ class Player extends Phaser.GameObjects.Sprite {
 
 
     update(time, delta) {
+        this.generateParticleSprite();
 
         this.handleControlInputs(delta);
 
@@ -141,6 +155,14 @@ class Player extends Phaser.GameObjects.Sprite {
         this.body.velocity.y = Math.min(this.body.velocity.y, this.maxFallVelo);
 
         this.lastXVelo = this.body.velocity.x;
+    }
+
+    generateParticleSprite() {
+        let color = Phaser.Display.Color.HSVToRGB(1 / 3 * (1 - Math.abs(this.body.velocity.x / this.body.maxVelocity.x)), 1, 1).color;
+        this.particleGraphics.fillStyle(color, 1);
+        this.particleGraphics.fillCircle(2, 2, 2);
+        this.particleGraphics.generateTexture('particle', 4, 4);
+        this.particleGraphics.clear();
     }
 
     handleVisuals(time, delta) {
@@ -170,6 +192,13 @@ class Player extends Phaser.GameObjects.Sprite {
             this.rotation += Math.PI / 6;
             this.rotorInner.rotation -= Math.PI  / 6;
         }
+
+        this.well.x = this.body.x + this.bodySize / 2;
+        this.well.y = this.body.y + this.bodySize / 2;
+        this.wellOuter.x = this.body.x + this.bodySize / 2;
+        this.wellOuter.y = this.body.y + this.bodySize / 2;
+        //this.suckEmitter.deathZones[0].x = this.body.x + this.bodySize / 2;
+        //this.suckEmitter.deathZones[0].y = this.body.y + this.bodySize / 2;
 
         let dR = (delta / 1000) / this.bodySize;
         this.rotation += this.body.velocity.x * dR;
@@ -326,6 +355,12 @@ class Player extends Phaser.GameObjects.Sprite {
             // start siphoning xVelo
             this.moveDirection = 0;
             this.body.setDragX(Math.max(this.body.drag.x, this.drag));
+            if (Math.abs(this.body.velocity.x) > 0) {
+                this.suckEmitter.quantity = 1;
+            }
+            else {
+                this.suckEmitter.quantity = 0;
+            }
 
             // add siphoned xVelo to storage
             if (Math.abs(this.storedVelo) < this.maxStoredVelo) {
@@ -338,6 +373,7 @@ class Player extends Phaser.GameObjects.Sprite {
         }
         else {
             this.storedVelo = Math.max(this.storedVelo - (this.storedVeloBleed * (delta / 1000)), 0);
+            this.suckEmitter.quantity = 0;
         }
 
         if (this.comboVelo > 0) {
