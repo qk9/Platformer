@@ -39,47 +39,79 @@ class Player extends Phaser.GameObjects.Sprite {
         this.generateParticleSprite();
 
         // create particle emitters
-        this.particleSpeed = 100;
         this.suckEmitter = this.scene.add.particles(0, 0, null,
             {
-                scale: 1,
-                alpha: 0.5,
-                frequency: 20,
+                x: {
+                    onUpdate: (particle, key, t, value) => {
+                        particle.toPos.x = particle.toPos.x * (0.99 - t * 0.04) + this.body.position.x * (0.01 + t * 0.04);
+                        return particle.toPos.x + this.bodySize / 2 + (this.outerColorGeom.radius + 100) * Math.cos(particle.inAngle + (Math.PI * 1.5 * Math.pow(t, 2) * Math.sign(!this.flipX - 0.5))) * (Math.sin(t * 9 * Math.PI / 10 + Math.PI / 10));
+                    }
+                },
+                y: {
+                    onUpdate: (particle, key, t, value) => {
+                        particle.toPos.y = particle.toPos.y * (0.99 - t * 0.04) + this.body.position.y * (0.01 + t * 0.04);
+                        return particle.toPos.y + this.bodySize / 2 + (this.outerColorGeom.radius + 100) * Math.sin(particle.inAngle + (Math.PI * 1.5 * Math.pow(t, 2) * Math.sign(!this.flipX - 0.5))) * (Math.sin(t * 9 * Math.PI / 10 + Math.PI / 10));
+                    }
+                },
+                scale: 0.25,
+                alpha: {start: 0.25, end: 0.75},
+                frequency: 10,
                 quantity: 0,
                 texture: 'particle',
                 blendMode: 'ADD',
-                maxVelocityY: 150,
                 emitCallback: (particle) => {
+                    particle.storedVelo = this.veloToStore;
+                    this.veloToStore = 0;
+
                     let angle = Math.random() * Math.PI * 2;
-                    particle.x = this.outerColorGeom.x + (this.outerColorGeom.radius + 10) * (Math.cos(angle));
-                    particle.y = this.outerColorGeom.y + (this.outerColorGeom.radius + 10) * (Math.sin(angle));
-                    particle.velocityX = 0; //(this.particleSpeed * Math.cos(angle + Math.PI / 2 * Math.sign(this.flipX - 0.5) * -1));
-                    particle.velocityY = 0; //(this.particleSpeed * Math.sin(angle + Math.PI / 2 * Math.sign(this.flipX - 0.5) * -1));
+                    particle.inAngle = angle;
+                    particle.toPos = {x: this.body.position.x, y: this.body.position.y};
+
+                    particle.x = this.outerColorGeom.x + (this.outerColorGeom.radius + 100) * (Math.cos(angle));
+                    particle.y = this.outerColorGeom.y + (this.outerColorGeom.radius + 100) * (Math.sin(angle));
+
+                    particle.life = Math.max(Math.abs(this.body.velocity.x * 0.8), 100);
+                    particle.lifeCurrent = particle.life;
+
                     this.scene.children.bringToTop(particle);
+                },
+                deathCallback: (particle) => {
+                    this.storedVelo += particle.storedVelo;
                 },
                 deathZone: {
                     type: 'onEnter',
-                    source: this.innerColorGeom
+                    source: this.outerColorGeom
                 }
             }
         );
         this.suckEmitter.startFollow(this.body, this.outerParticleGeom.radius, this.outerParticleGeom.radius);
-        this.well = this.suckEmitter.createGravityWell({
-            x: this.x,
-            y: this.y,
-            power: 1,
-            epsilon: 1,
-            gravity: 80
-        });
-        this.well.active = true;
-        this.wellOuter = this.suckEmitter.createGravityWell({
-            x: this.x,
-            y: this.y,
-            power: 100,
-            epsilon: 800,
-            gravity: 80
-        });
-        this.wellOuter.active = true;
+
+        this.boostEmitter = this.scene.add.particles(0, 0, null,
+            {
+                scale: 0.25,
+                alpha: {start: 1, end: 0},
+                texture: 'particle',
+                quantity: 0,
+                blendMode: 'ADD',
+                emitCallback: (particle) => {
+                    particle.x = this.outerColorGeom.x + (Math.random() * 15 + (this.outerColorGeom.radius - 10) * this.inDirection * -1) * (this.boostEmitter.inSource == "dash");
+                    particle.y = this.outerColorGeom.y + (Math.random() * 15 + (this.outerColorGeom.radius - 10)) * (this.boostEmitter.inSource == "jump");
+
+                    particle.velocityX = Math.max(this.scene.player.storedVelo + 200, this.scene.player.comboVelo + 200) * Math.pow(Math.random() + 0.2, 3) * this.boostEmitter.currSign * (this.boostEmitter.inSource == "jump");
+                    particle.velocityY = Math.max(this.scene.player.storedVelo + 200, this.scene.player.comboVelo + 200) * Math.pow(Math.random() + 0.2, 3) * this.boostEmitter.currSign * (this.boostEmitter.inSource == "dash");
+
+                    particle.accelerationX = -1 * particle.velocityX * (this.boostEmitter.inSource == "jump");
+                    particle.accelerationY = -1 * particle.velocityY * (this.boostEmitter.inSource == "dash");
+
+                    this.boostEmitter.currSign *= -1;
+
+                    particle.life = Math.max(1000 - Math.max(Math.abs(particle.velocityX), Math.abs(particle.velocityY)), 150);
+                    particle.lifeCurrent = particle.life;
+                }
+
+            }
+        );
+        this.boostEmitter.currSign = 1;
 
 
         // create rotating triangles
@@ -111,6 +143,7 @@ class Player extends Phaser.GameObjects.Sprite {
         this.dragMultiplier = 1;
 
         // momentum storage variables
+        this.veloToStore = 0;
         this.storedVelo = 0;
         this.comboVelo = 0;
         this.comboSource = "";
@@ -124,6 +157,7 @@ class Player extends Phaser.GameObjects.Sprite {
         this.controls.jump.on("down", this.jump, this);
 
         // dash callback & variables
+        this.inDirection = 0;
         this.moveDirection = 0; // -1 = left, 0 = neutral, 1 = right
         this.controls.dash.on("down", this.dash, this)
 
@@ -149,8 +183,6 @@ class Player extends Phaser.GameObjects.Sprite {
 
         this.handleVisuals(time, delta);
 
-        //console.log(this.storedVelo);
-
         // cap downwards velo so you don't fall through the floor (thanks phaser)
         this.body.velocity.y = Math.min(this.body.velocity.y, this.maxFallVelo);
 
@@ -160,8 +192,8 @@ class Player extends Phaser.GameObjects.Sprite {
     generateParticleSprite() {
         let color = Phaser.Display.Color.HSVToRGB(1 / 3 * (1 - Math.abs(this.body.velocity.x / this.body.maxVelocity.x)), 1, 1).color;
         this.particleGraphics.fillStyle(color, 1);
-        this.particleGraphics.fillCircle(2, 2, 2);
-        this.particleGraphics.generateTexture('particle', 4, 4);
+        this.particleGraphics.fillCircle(8, 8, 8);
+        this.particleGraphics.generateTexture('particle', 16, 16);
         this.particleGraphics.clear();
     }
 
@@ -192,13 +224,6 @@ class Player extends Phaser.GameObjects.Sprite {
             this.rotation += Math.PI / 6;
             this.rotorInner.rotation -= Math.PI  / 6;
         }
-
-        this.well.x = this.body.x + this.bodySize / 2;
-        this.well.y = this.body.y + this.bodySize / 2;
-        this.wellOuter.x = this.body.x + this.bodySize / 2;
-        this.wellOuter.y = this.body.y + this.bodySize / 2;
-        //this.suckEmitter.deathZones[0].x = this.body.x + this.bodySize / 2;
-        //this.suckEmitter.deathZones[0].y = this.body.y + this.bodySize / 2;
 
         let dR = (delta / 1000) / this.bodySize;
         this.rotation += this.body.velocity.x * dR;
@@ -278,7 +303,6 @@ class Player extends Phaser.GameObjects.Sprite {
         }
 
         if (this.body.blocked.right && this.body.position.x + this.bodySize < this.scene.map.widthInPixels) {
-            //console.log("old y:" + this.body.position.y);
             // step upwards if top of wall is <= 1 tile away
             if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) + 1, Math.floor(this.y / this.scene.map.tileWidth) - 1, true, "physical").index == -1) {
                 //console.log("step up-right");
@@ -355,7 +379,7 @@ class Player extends Phaser.GameObjects.Sprite {
             // start siphoning xVelo
             this.moveDirection = 0;
             this.body.setDragX(Math.max(this.body.drag.x, this.drag));
-            if (Math.abs(this.body.velocity.x) > 0) {
+            if (this.veloToStore > 0) {
                 this.suckEmitter.quantity = 1;
             }
             else {
@@ -365,7 +389,8 @@ class Player extends Phaser.GameObjects.Sprite {
             // add siphoned xVelo to storage
             if (Math.abs(this.storedVelo) < this.maxStoredVelo) {
                 // if you hit a wall, you don't get to keep the velo from that
-                this.storedVelo += Math.min(Math.abs(this.lastXVelo - this.body.velocity.x), 87.5);
+                this.veloToStore += Math.min(Math.abs(this.lastXVelo - this.body.velocity.x), 87.5);
+                // veloToStore is sent to the player via the suckEmitter
             }
 
             // cap stored velo
@@ -395,6 +420,12 @@ class Player extends Phaser.GameObjects.Sprite {
     jump() {
         if (this.comboSource == "jump" || !this.body.onFloor()) return;
 
+        this.boostEmitter.quantity = Math.floor(Math.max(this.scene.player.storedVelo, this.scene.player.comboVelo) / 20) + (10 * (Math.max(this.scene.player.storedVelo, this.scene.player.comboVelo) > 0));
+        this.boostEmitter.inSource = "jump";
+        this.boostEmitter.explode();
+        this.boostEmitter.inSource = "";
+        this.boostEmitter.quantity = 0;
+
         this.body.setVelocityY((Math.max(this.storedVelo, this.comboVelo) * -1) + this.minJumpVelo);
         this.body.setDragX(0);
 
@@ -415,6 +446,12 @@ class Player extends Phaser.GameObjects.Sprite {
 
     dash() {
         if (this.comboSource == "dash" || this.inDirection == 0) return;
+
+        this.boostEmitter.quantity = Math.floor(Math.max(this.scene.player.storedVelo, this.scene.player.comboVelo) / 20) + (10 * (Math.max(this.scene.player.storedVelo, this.scene.player.comboVelo) > 0));
+        this.boostEmitter.inSource = "dash";
+        this.boostEmitter.explode();
+        this.boostEmitter.inSource = "";
+        this.boostEmitter.quantity = 0;
 
         this.body.setVelocityX(this.body.velocity.x + Math.max(this.storedVelo, this.comboVelo) * this.inDirection);
         this.moveDirection = this.inDirection;
