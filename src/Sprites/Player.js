@@ -39,7 +39,7 @@ class Player extends Phaser.GameObjects.Sprite {
         this.generateParticleSprite();
 
         // create particle emitters
-        this.suckEmitter = this.scene.add.particles(0, 0, null,
+        this.suckEmitter = this.scene.add.particles(0, 0, 'particle',
             {
                 x: {
                     onUpdate: (particle, key, t, value) => {
@@ -57,7 +57,6 @@ class Player extends Phaser.GameObjects.Sprite {
                 alpha: {start: 0.25, end: 0.75},
                 frequency: 10,
                 quantity: 0,
-                texture: 'particle',
                 blendMode: 'ADD',
                 emitCallback: (particle) => {
                     particle.storedVelo = this.veloToStore;
@@ -86,11 +85,10 @@ class Player extends Phaser.GameObjects.Sprite {
         );
         this.suckEmitter.startFollow(this.body, this.outerParticleGeom.radius, this.outerParticleGeom.radius);
 
-        this.boostEmitter = this.scene.add.particles(0, 0, null,
+        this.boostEmitter = this.scene.add.particles(0, 0, 'particle',
             {
                 scale: 0.25,
                 alpha: {start: 1, end: 0},
-                texture: 'particle',
                 quantity: 0,
                 blendMode: 'ADD',
                 emitCallback: (particle) => {
@@ -161,12 +159,29 @@ class Player extends Phaser.GameObjects.Sprite {
         this.moveDirection = 0; // -1 = left, 0 = neutral, 1 = right
         this.controls.dash.on("down", this.dash, this)
 
+        // momentum storage resetting
         this.scene.input.on("pointerup", () => {this.canStoreVelo = true;});
 
         this.scene.children.bringToTop(this);
 
+        // level end condition tracker
+        this.coinsToCollect = 0;//scene.foreground.filterTiles().length;
+
+        // initialize player body with scene's physics
         scene.physics.add.existing(this);
         this.collider = scene.physics.add.collider(this.body, scene.platforms);
+        //TODO: change this to interact with a new "coins" layer in the tilemap
+        this.collector = scene.physics.add.overlap(this.body, scene.foreground, (object1, object2) => {
+            if (object2.index != -1) {
+                this.scene.foreground.removeTileAt(object2.x, object2.y);
+                this.scene.background.putTileAt(1, object2.x, object2.y, false, scene.background);
+                this.coinsCollected++;
+                console.log(object2.index, object2.layer);
+                if (this.scene.foreground.findByIndex(object2.index, 0, false, object2.layer) == null) {
+                    this.scene.triggerGameOver();
+                }
+            }
+        });
         this.body.setCollideWorldBounds(true);
         
         scene.add.existing(this);
@@ -254,7 +269,7 @@ class Player extends Phaser.GameObjects.Sprite {
     }
 
     handleShortWallCollisions() {
-        if (this.body.blocked.left && this.body.position.x > 0) {
+        if (this.body.blocked.left && this.body.position.x > (this.scene.map.tileWidth / 2)) {
             //console.log("old y:" + this.body.position.y);
             // step upwards if top of wall is <= 1 tile away
             if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) - 1, Math.floor(this.y / this.scene.map.tileWidth) - 1, true, "physical").index == -1) {
@@ -302,7 +317,7 @@ class Player extends Phaser.GameObjects.Sprite {
             }
         }
 
-        if (this.body.blocked.right && this.body.position.x + this.bodySize < this.scene.map.widthInPixels) {
+        if (this.body.blocked.right && this.body.position.x + this.bodySize < this.scene.map.widthInPixels - (this.scene.map.tileWidth / 2)) {
             // step upwards if top of wall is <= 1 tile away
             if (this.scene.map.getTileAt(Math.floor(this.x / this.scene.map.tileWidth) + 1, Math.floor(this.y / this.scene.map.tileWidth) - 1, true, "physical").index == -1) {
                 //console.log("step up-right");
@@ -470,5 +485,15 @@ class Player extends Phaser.GameObjects.Sprite {
 
         this.body.setDragX(0);
         this.storedVelo = 0;
+    }
+
+    deleteSubObjects() {
+        this.body.destroy();
+        this.outerGraphics.destroy();
+        this.rotorInner.destroy();
+        this.innerGraphics.destroy();
+        this.suckEmitter.destroy();
+        this.boostEmitter.destroy();
+        this.triangleGraphics.destroy();
     }
 }
