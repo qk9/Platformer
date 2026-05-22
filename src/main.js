@@ -31,7 +31,7 @@ let config = {
         }
     },
     width: 2400,
-    height: 960,
+    height: 1280,
     autoCenter: true,
     scaleMode:Phaser.Scale.ScaleModes.FIT,
     scene: [Platformer] // TODO: add scenes

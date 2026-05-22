@@ -7,8 +7,8 @@ class Platformer extends Phaser.Scene {
         this.load.setPath("./assets/");
 
         // tilemap data
-        this.load.image("tileset", "tileset_merged.png");
-        this.load.tilemapTiledJSON("map", "level_testing.tmj");
+        this.load.image("tileset", "Tileset_Hyperphantasia.png");
+        this.load.tilemapTiledJSON("map", "level_one.tmj");
 
         // player sprites
         this.load.image("playerTexture", "kenney_light-masks-1.0/Transparent/circle_c_streaks_resized.png");
@@ -28,7 +28,7 @@ class Platformer extends Phaser.Scene {
         this.cameras.main.setViewport(0, 0, game.config.width, game.config.height);
 
         this.map = this.add.tilemap("map", 34, 34, 15, 100);
-        this.tileset = this.map.addTilesetImage("tileset_merged_v1", "tileset");
+        this.tileset = this.map.addTilesetImage("Tileset_Hyperphantasia_v1", "tileset");
 
         this.backgroundLayer = this.map.createLayer("background", this.tileset, 0, 0);
         this.platforms = this.map.createLayer("physical", this.tileset, 0, 0);

@@ -1,0 +1,40 @@
+{
+    "activeFile": "level_one.tmx",
+    "expandedProjectPaths": [
+        "."
+    ],
+    "fileStates": {
+        "": {
+            "scaleInEditor": 1
+        },
+        "level_one.tmx": {
+            "scale": 0.25,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 9458,
+                "y": 608
+            }
+        },
+        "level_one.tmx#Tileset_Hyperphantasia_v1": {
+            "scaleInDock": 0.5
+        }
+    },
+    "last.exportedFilePath": "C:/Users/irPC/Documents/code/school/ucsc/cmpm 120/Platformer/assets",
+    "last.imagePath": "C:/Users/irPC/Documents/code/school/ucsc/cmpm 120/Platformer/assets",
+    "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
+    "map.lastUsedFormat": "tmx",
+    "map.width": 500,
+    "openFiles": [
+        "level_one.tmx"
+    ],
+    "project": "level_one.tiled-project",
+    "property.type": "bool",
+    "recentFiles": [
+        "level_one.tmx"
+    ],
+    "tileset.embedInMap": true,
+    "tileset.tileSize": {
+        "height": 64,
+        "width": 64
+    }
+}
