@@ -43,13 +43,13 @@ class Player extends Phaser.GameObjects.Sprite {
             {
                 x: {
                     onUpdate: (particle, key, t, value) => {
-                        particle.toPos.x = particle.toPos.x * (0.99 - t * 0.04) + this.body.position.x * (0.01 + t * 0.04);
+                        particle.toPos.x = particle.toPos.x * (0.98 - t * 0.06) + this.body.position.x * (0.02 + t * 0.06);
                         return particle.toPos.x + this.bodySize / 2 + (this.outerColorGeom.radius + 100) * Math.cos(particle.inAngle + (Math.PI * 1.5 * Math.pow(t, 2) * Math.sign(!this.flipX - 0.5))) * (Math.sin(t * 9 * Math.PI / 10 + Math.PI / 10));
                     }
                 },
                 y: {
                     onUpdate: (particle, key, t, value) => {
-                        particle.toPos.y = particle.toPos.y * (0.99 - t * 0.04) + this.body.position.y * (0.01 + t * 0.04);
+                        particle.toPos.y = particle.toPos.y * (0.98 - t * 0.06) + this.body.position.y * (0.02 + t * 0.06);
                         return particle.toPos.y + this.bodySize / 2 + (this.outerColorGeom.radius + 100) * Math.sin(particle.inAngle + (Math.PI * 1.5 * Math.pow(t, 2) * Math.sign(!this.flipX - 0.5))) * (Math.sin(t * 9 * Math.PI / 10 + Math.PI / 10));
                     }
                 },
