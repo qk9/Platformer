@@ -106,6 +106,30 @@ class Player extends Phaser.GameObjects.Sprite {
         );
         this.boostEmitter.currSign = 1;
 
+        this.coinX = 0;
+        this.coinY = scene.sys.scale.height * 2;
+        this.coinParticleStartSequence = [{x: 0, y: -20},{x: -10, y: -10},{x: 10, y: -10},{x: -20, y: 0},{x: 0, y: 0},{x: 20, y: 0},{x: -10, y: 10},{x: 10, y: 10},{x: 0, y: 20},];
+        this.coinParticleStartIndex = 0;
+        this.coinEmitter = this.scene.add.particles(0, 0, 'coinParticle', 
+            {
+                gravityY: 400,
+                scale: 1,
+                alpha: {start: 1, end: 0},
+                quantity: 9,
+                blendMode: 'ADD',
+                emitCallback: (particle) => {
+                    let angle = Math.random() * Math.PI * 2;
+                    particle.x = this.coinX + this.coinParticleStartSequence[this.coinParticleStartIndex].x;
+                    particle.y = this.coinY + this.coinParticleStartSequence[this.coinParticleStartIndex].y;
+                    this.coinParticleStartIndex = (this.coinParticleStartIndex + 1) % 9;
+                    let randomFactor = Math.random();
+                    particle.velocityX = (50 + randomFactor * 50) * Math.cos(angle);
+                    particle.velocityY = (50 + randomFactor * 50) * Math.sin(angle);
+                    particle.life = 1000 - Math.random() * 500;
+                    particle.lifeCurrent = particle.life;
+                }
+        });
+        this.coinEmitter.explode();
 
         // create rotating triangles
         this.numTriangles = numTriangles;
@@ -160,7 +184,7 @@ class Player extends Phaser.GameObjects.Sprite {
         this.scene.children.bringToTop(this);
 
         // level end condition tracker
-        this.coinsToCollect = 0;//scene.foreground.filterTiles().length;
+        this.coinsCollected = 0;
 
         // initialize player body with scene's physics
         scene.physics.add.existing(this);
@@ -170,7 +194,9 @@ class Player extends Phaser.GameObjects.Sprite {
             if (object2.index != -1) {
                 this.scene.foreground.removeTileAt(object2.x, object2.y);
                 this.scene.background.putTileAt(1, object2.x, object2.y, false, scene.background);
-                this.coinsCollected++;
+                this.coinX = object2.x * this.scene.map.tileWidth + this.scene.map.tileWidth / 2;
+                this.coinY = object2.y * this.scene.map.tileHeight + this.scene.map.tileHeight / 2;
+                this.coinEmitter.explode();
                 if (this.scene.foreground.findByIndex(object2.index, 0, false, object2.layer) == null) {
                     this.scene.triggerGameOver();
                 }
@@ -203,6 +229,10 @@ class Player extends Phaser.GameObjects.Sprite {
         this.particleGraphics.fillStyle(color, 1);
         this.particleGraphics.fillCircle(8, 8, 8);
         this.particleGraphics.generateTexture('particle', 16, 16);
+        this.particleGraphics.clear();
+        this.particleGraphics.fillStyle(color, 1);
+        this.particleGraphics.fillPoints([{x: 0, y: 8},{x: 8, y: 0},{x: 16, y: 8},{x: 8, y: 16}], true);
+        this.particleGraphics.generateTexture('coinParticle', 16, 16);
         this.particleGraphics.clear();
     }
 
