@@ -362,11 +362,23 @@ class Player extends Phaser.GameObjects.Sprite {
         // determine movement direction, set drag, and animate player model
         if (this.controls.left.isDown && !this.controls.right.isDown) {
             this.inDirection = -1;
-            this.body.setDragX(0);
+            if (this.body.velocity.x > 0) {
+                this.inDirection = 0;
+                this.body.setDragX(this.drag * 3);
+            }
+            else {
+                this.body.setDragX(0);
+            }
         }
         else if (this.controls.right.isDown && !this.controls.left.isDown) {
             this.inDirection = 1;
-            this.body.setDragX(0);
+            if (this.body.velocity.x < 0) {
+                this.inDirection = 0;
+                this.body.setDragX(this.drag * 3);
+            }
+            else {
+                this.body.setDragX(0);
+            }
         }
         else {
             if (this.controls.left.isDown) {
@@ -443,12 +455,13 @@ class Player extends Phaser.GameObjects.Sprite {
         else {
             this.comboSource = "";
         }
-
+        if (this.storedVelo > 0) {
+            this.canStoreVelo = false;
+        }
         this.storedVelo = 0;
 
         // prevent combo velo from being reset due to async physics framerate
         this.body.blocked.down = false;
-        this.canStoreVelo = false;
     }
 
     dash() {
@@ -471,8 +484,11 @@ class Player extends Phaser.GameObjects.Sprite {
             this.comboSource = "";
         }
 
-        if (this.body.onFloor()) {
+        if (this.body.onFloor() && this.controls.storeVelo.isDown) {
             this.canStoreVelo = false;
+        }
+        else {
+            this.canStoreVelo = true;
         }
 
         this.body.setDragX(0);
