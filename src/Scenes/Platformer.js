@@ -50,13 +50,28 @@ class Platformer extends Phaser.Scene {
         this.controls.storeVelo = this.input.activePointer;
         this.controls.reset = null;
 
-        this.player = new Player(this, 250, game.config.height - 200, this.controls, "playerTwirlSlow", "playerTwirlFast", 3, null);
+        this.player = new Player(this, 220, game.config.height - 200, this.controls, "playerTwirlSlow", "playerTwirlFast", 3, null);
 
         this.gameIsOver = false;
 
         this.cameras.main.startFollow(this.player);
         this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
         this.init_BackgroundColor();
+
+        this.startGraphics = this.add.graphics();
+        this.children.sendToBack(this.startGraphics);
+        this.startGraphicsRadius = 1;
+        this.startGraphics.fillCircle(this.player.x, this.player.y, this.startGraphicsRadius);
+        this.startTween = this.add.tween({
+            targets: this,
+            startGraphicsRadius: this.sys.scale.width * 1.2,
+            ease: 'Quad.easeOut',
+            duration: 1000
+        });
+        this.startTween.play();
+        this.cameras.main.setMask(this.startGraphics.createGeometryMask());
+
+        this.timeElapsed = 0;
     }
 
     init_tilemap() {
@@ -73,8 +88,23 @@ class Platformer extends Phaser.Scene {
     }
 
     update(time, delta) {
+        if (this.startGraphics != null) {
+            this.startGraphics.clear();
+            if (this.startGraphicsRadius >= this.sys.scale.width * 1.2) {
+                this.startGraphics.destroy();
+                this.cameras.main.clearMask(true);
+                this.startGraphics = null;
+                this.startGraphicsRadius = null;
+            }
+            else {
+                this.startGraphics.fillCircle(this.player.x, this.player.y, this.startGraphicsRadius);
+                this.cameras.main.clearMask(true);
+                this.cameras.main.setMask(this.startGraphics.createGeometryMask());
+            }
+        }
         if (!this.gameIsOver) {
             this.doBackgroundColor();
+            this.timeElapsed += delta;
             this.player.update(time, delta);
         }
         else {

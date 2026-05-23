@@ -59,8 +59,6 @@ class Player extends Phaser.GameObjects.Sprite {
                 quantity: 0,
                 blendMode: 'ADD',
                 emitCallback: (particle) => {
-                    particle.storedVelo = this.veloToStore;
-                    this.veloToStore = 0;
 
                     let angle = Math.random() * Math.PI * 2;
                     particle.inAngle = angle;
@@ -73,9 +71,6 @@ class Player extends Phaser.GameObjects.Sprite {
                     particle.lifeCurrent = particle.life;
 
                     this.scene.children.bringToTop(particle);
-                },
-                deathCallback: (particle) => {
-                    this.storedVelo += particle.storedVelo;
                 },
                 deathZone: {
                     type: 'onEnter',
@@ -117,7 +112,7 @@ class Player extends Phaser.GameObjects.Sprite {
         this.triangleScale = 200;
         this.triangleGraphics = scene.add.graphics();
         this.scene.children.sendToBack(this.triangleGraphics);
-        this.triangleGraphics.lineStyle(10, 0xffffff, 1);
+        this.triangleGraphics.lineStyle(10, 0x000000, 1);
         this.triangles = {};
         let triangleOffset = Math.sqrt(Math.pow(this.triangleScale, 2) * 1.25);
         for (let i = 0; i < numTriangles; i++) {
@@ -176,7 +171,6 @@ class Player extends Phaser.GameObjects.Sprite {
                 this.scene.foreground.removeTileAt(object2.x, object2.y);
                 this.scene.background.putTileAt(1, object2.x, object2.y, false, scene.background);
                 this.coinsCollected++;
-                console.log(object2.index, object2.layer);
                 if (this.scene.foreground.findByIndex(object2.index, 0, false, object2.layer) == null) {
                     this.scene.triggerGameOver();
                 }
@@ -259,11 +253,11 @@ class Player extends Phaser.GameObjects.Sprite {
         this.innerGraphics.fillCircleShape(this.innerColorGeom);
         
         this.triangleGraphics.clear();
-        this.triangleGraphics.lineStyle((Math.sin(time / 1000 * 2 * Math.PI) + 1) * 9 + 2, 0xffffff, 0.75);
+        this.triangleGraphics.lineStyle((Math.sin(time / 3000 * 2 * Math.PI) + 1) * 6 + 3, 0x000000, 0.75);
 
         for (let i = 0; i < this.numTriangles; i++) {
             Phaser.Geom.Triangle.CenterOn(this.triangles[i], this.body.x + this.bodySize / 2, this.body.y + this.bodySize / 2);
-            Phaser.Geom.Triangle.Rotate(this.triangles[i], Math.PI * 2 / 3500 * delta * (i / 3.0 + 1) * (this.body.velocity.x / this.body.maxVelocity.x));
+            Phaser.Geom.Triangle.Rotate(this.triangles[i], Math.PI * 2 / 2000 * delta * (i / 3.0 + 1) * (this.body.velocity.x / this.body.maxVelocity.x));
             this.triangleGraphics.strokeTriangleShape(this.triangles[i]);
         }
     }
@@ -394,18 +388,16 @@ class Player extends Phaser.GameObjects.Sprite {
             // start siphoning xVelo
             this.moveDirection = 0;
             this.body.setDragX(Math.max(this.body.drag.x, this.drag));
-            if (this.veloToStore > 0) {
+
+            // add siphoned xVelo to storage
+            if (Math.abs(this.storedVelo) < this.maxStoredVelo && Math.abs(this.body.velocity.x) > 0) {
                 this.suckEmitter.quantity = 1;
+                // if you hit a wall, you don't get to keep the velo from that
+                this.storedVelo += Math.min(Math.abs(this.lastXVelo - this.body.velocity.x), 87.5);
+                // veloToStore is sent to the player via the suckEmitter
             }
             else {
                 this.suckEmitter.quantity = 0;
-            }
-
-            // add siphoned xVelo to storage
-            if (Math.abs(this.storedVelo) < this.maxStoredVelo) {
-                // if you hit a wall, you don't get to keep the velo from that
-                this.veloToStore += Math.min(Math.abs(this.lastXVelo - this.body.velocity.x), 87.5);
-                // veloToStore is sent to the player via the suckEmitter
             }
 
             // cap stored velo
