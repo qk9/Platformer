@@ -364,7 +364,7 @@ class Player extends Phaser.GameObjects.Sprite {
             this.inDirection = -1;
             if (this.body.velocity.x > 0) {
                 this.inDirection = 0;
-                this.body.setDragX(this.drag * 3);
+                this.body.setDragX(this.drag * 2 + this.drag * this.controls.storeVelo.isDown);
             }
             else {
                 this.body.setDragX(0);
@@ -374,7 +374,7 @@ class Player extends Phaser.GameObjects.Sprite {
             this.inDirection = 1;
             if (this.body.velocity.x < 0) {
                 this.inDirection = 0;
-                this.body.setDragX(this.drag * 3);
+                this.body.setDragX(this.drag * 2 + this.drag * this.controls.storeVelo.isDown);
             }
             else {
                 this.body.setDragX(0);
@@ -385,7 +385,7 @@ class Player extends Phaser.GameObjects.Sprite {
                 this.body.setDragX(this.drag);
             }
             else {
-                this.body.setDragX(this.drag * 3);
+                this.body.setDragX(this.drag * 2 + this.drag * this.controls.storeVelo.isDown);
             }
             this.inDirection = 0;
         }
