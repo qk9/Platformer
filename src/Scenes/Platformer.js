@@ -21,7 +21,6 @@ class Platformer extends Phaser.Scene {
     }
 
     init_platformer() {
-
         this.physics.world.gravity.y = 1500;
 
         this.cameras.main.setBackgroundColor(0xffffff);
@@ -113,9 +112,6 @@ class Platformer extends Phaser.Scene {
             this.endGraphics.fillCircle(this.geomX, this.geomY, this.endGraphicsRadius);
             this.cameras.main.setMask(this.endGraphics.createGeometryMask());
         }
-
-        // debug: log FPS
-        //console.log(Math.floor(1000 / delta));
     }
 
     init_BackgroundColor() {
@@ -126,7 +122,6 @@ class Platformer extends Phaser.Scene {
         let hue = 0.9 * this.oldHue + 0.1 * (1 / 3 * (1 - Math.abs(this.player.body.velocity.x / this.player.body.maxVelocity.x)));
         this.cameras.main.setBackgroundColor(Phaser.Display.Color.HSVToRGB(hue, 1, 1).color);
         this.oldHue = hue;
-
     }
 
     triggerGameOver() {
@@ -149,7 +144,5 @@ class Platformer extends Phaser.Scene {
             onComplete: () => {this.scene.start("title");}
         });
         this.endGraphicsTween.play();
-        //this.controls.reset = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-        //this.controls.reset.on("down", this.init_platformer, this);
     }
 }
