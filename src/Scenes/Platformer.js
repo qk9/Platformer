@@ -108,7 +108,10 @@ class Platformer extends Phaser.Scene {
             this.player.update(time, delta);
         }
         else {
-
+            this.endGraphics.clear();
+            this.cameras.main.clearMask(true);
+            this.endGraphics.fillCircle(this.geomX, this.geomY, this.endGraphicsRadius);
+            this.cameras.main.setMask(this.endGraphics.createGeometryMask());
         }
 
         // debug: log FPS
@@ -127,11 +130,26 @@ class Platformer extends Phaser.Scene {
     }
 
     triggerGameOver() {
+        this.geomX = this.player.x;
+        this.geomY = this.player.y;
+        this.endGraphics = this.add.graphics();
+        this.children.sendToBack(this.endGraphics);
+        this.endGraphicsRadius = this.sys.scale.width * 1.2;
+        this.endGraphics.fillCircle(this.geomX, this.geomY, this.endGraphicsRadius);
         this.player.deleteSubObjects();
         this.player.destroy();
         this.input.keyboard.removeAllKeys(true);
         this.gameIsOver = true;
-        this.controls.reset = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-        this.controls.reset.on("down", this.init_platformer, this);
+        this.endGraphicsTween = this.add.tween({
+            targets: this,
+            endGraphicsRadius: 1,
+            ease: 'Quad.easeOut',
+            duration: 800,
+            completeDelay: 800,
+            onComplete: () => {this.scene.start("title");}
+        });
+        this.endGraphicsTween.play();
+        //this.controls.reset = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        //this.controls.reset.on("down", this.init_platformer, this);
     }
 }

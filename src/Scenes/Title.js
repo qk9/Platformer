@@ -21,7 +21,8 @@ class Title extends Phaser.Scene {
         this.children.sendToBack(this.background);
         this.backgroundGeom = new Phaser.Geom.Rectangle(0, 0, this.title.displayWidth, this.title.displayHeight);
         this.hue = 1/3;
-        this.background.fillStyle(Phaser.Display.Color.HSVToRGB(this.hue, 1, 1).color, 1);
+        this.hsvValue = 0;
+        this.background.fillStyle(Phaser.Display.Color.HSVToRGB(this.hue, 1, this.hsvValue).color, 1);
         this.background.fillRectShape(this.backgroundGeom);
 
         // create base background animation
@@ -43,6 +44,13 @@ class Title extends Phaser.Scene {
             yoyo: true
         });
         this.hueTween.play();
+        this.valueTween = this.add.tween({
+            targets: this,
+            hsvValue: 0.5,
+            ease: 'Quad.easeIn',
+            duration: 3000
+        });
+        this.valueTween.play();
 
         // start game button
         this.startGameBind = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
@@ -79,7 +87,7 @@ class Title extends Phaser.Scene {
         this.backgroundGeom.x = this.title.x - this.title.displayWidth / 2;
         this.backgroundGeom.y = this.title.y - this.title.displayHeight / 2;
         this.background.clear();
-        this.background.fillStyle(Phaser.Display.Color.HSVToRGB(this.hue, 0.9, 0.5).color, 1);
+        this.background.fillStyle(Phaser.Display.Color.HSVToRGB(this.hue, 0.9, this.hsvValue).color, 1);
         this.background.fillRectShape(this.backgroundGeom);
         
         this.triangleGraphics.clear();
