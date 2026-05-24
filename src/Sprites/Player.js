@@ -485,7 +485,7 @@ class Player extends Phaser.GameObjects.Sprite {
         else {
             this.comboSource = "";
         }
-        if (this.storedVelo > 0) {
+        if (this.controls.storeVelo.isDown) {
             this.canStoreVelo = false;
         }
         this.storedVelo = 0;
@@ -514,11 +514,8 @@ class Player extends Phaser.GameObjects.Sprite {
             this.comboSource = "";
         }
 
-        if (this.body.onFloor() && this.controls.storeVelo.isDown) {
+        if (this.controls.storeVelo.isDown) {
             this.canStoreVelo = false;
-        }
-        else {
-            this.canStoreVelo = true;
         }
 
         this.body.setDragX(0);
